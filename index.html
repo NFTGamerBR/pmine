@@ -41,15 +41,49 @@
       font-weight: bold;
     }
 
+    .play-button {
+      position: relative;
+    }
+
     .play-button img {
       width: 253px;
       height: auto;
       cursor: pointer;
+      transition: opacity 0.3s ease;
+    }
+
+    .play-button.connected img {
+      opacity: 0.25;
+      pointer-events: none;
+    }
+
+    .play-button.connected-text::after {
+      content: 'Wallet conectada';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-weight: bold;
+      font-size: 1.2em;
+      color: #00ff88;
+      text-shadow: 2px 2px 4px #000;
     }
 
     .version {
       font-size: 1em;
       margin-top: -20px;
+    }
+
+    .wallet-info {
+      margin-top: 20px;
+      padding: 10px;
+      background-color: rgba(0, 255, 100, 0.5);
+      border-radius: 8px;
+      font-size: 0.9em;
+      width: 90%;
+      max-width: 350px;
+      word-break: break-all;
+      box-shadow: 0 0 10px rgba(0, 255, 100, 0.3);
     }
 
     @media (max-width: 480px) {
@@ -65,10 +99,11 @@
 <body>
   <div class="content">
     <div class="logo">LOGO</div>
-    <div class="play-button" onclick="connectWallet()">
+    <div class="play-button" id="connectBtn" onclick="connectWallet()">
       <img src="play.png" alt="Play">
       <div class="version">V 0.3</div>
     </div>
+    <div id="walletInfo" class="wallet-info" style="display:none;"></div>
   </div>
 
   <script>
@@ -80,11 +115,11 @@
 
       try {
         const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-
+        const account = accounts[0];
         const web3 = new Web3(window.ethereum);
+
         const chainId = await web3.eth.getChainId();
 
-        // Verifica se está na Binance Smart Chain
         if (chainId !== 56) {
           try {
             await window.ethereum.request({
@@ -92,7 +127,6 @@
               params: [{ chainId: '0x38' }],
             });
           } catch (switchError) {
-            // Se não estiver adicionada, tenta adicionar a BSC
             if (switchError.code === 4902) {
               try {
                 await window.ethereum.request({
@@ -116,9 +150,23 @@
           }
         }
 
-        const account = accounts[0];
-        alert('Carteira conectada: ' + account);
-        // Aqui você pode redirecionar ou iniciar o jogo
+        // Obter saldo
+        const balanceWei = await web3.eth.getBalance(account);
+        const balanceBNB = web3.utils.fromWei(balanceWei, 'ether');
+
+        // Atualizar botão
+        const btn = document.getElementById('connectBtn');
+        btn.classList.add('connected', 'connected-text');
+        btn.onclick = null;
+
+        // Mostrar infos
+        const walletInfo = document.getElementById('walletInfo');
+        walletInfo.innerHTML = `
+          <div><strong>Carteira:</strong> ${account}</div>
+          <div><strong>Saldo BNB:</strong> ${parseFloat(balanceBNB).toFixed(4)} BNB</div>
+        `;
+        walletInfo.style.display = 'block';
+
       } catch (error) {
         console.error('Erro ao conectar:', error);
         alert('Conexão recusada ou erro detectado.');
