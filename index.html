@@ -15,6 +15,7 @@
     html, body {
       height: 100%;
       width: 100%;
+      font-family: sans-serif;
     }
 
     body {
@@ -23,13 +24,13 @@
       display: flex;
       justify-content: center;
       align-items: center;
-      font-family: sans-serif;
     }
 
     .content {
+      width: 100%;
+      max-width: 720px;
+      padding: 20px;
       text-align: center;
-      color: white;
-      text-shadow: 2px 2px 4px #000;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -39,6 +40,8 @@
     .logo {
       font-size: 2.5em;
       font-weight: bold;
+      color: white;
+      text-shadow: 2px 2px 4px #000;
     }
 
     .play-button {
@@ -46,7 +49,7 @@
     }
 
     .play-button img {
-      width: 253px;
+      width: 200px;
       height: auto;
       cursor: pointer;
       transition: opacity 0.3s ease;
@@ -58,44 +61,42 @@
 
     .version {
       font-size: 1em;
-      margin-top: -20px;
+      margin-top: -15px;
+      color: white;
+      text-shadow: 2px 2px 4px #000;
     }
 
     .wallet-info {
-      margin-top: 20px;
-      padding: 20px;
-      background-color: rgba(0, 0, 0, 0.7); /* fundo preto com 70% opacidade */
+      background-color: rgba(0, 0, 0, 0.7);
       border: 2px solid #00ff88;
       border-radius: 16px;
-      font-size: 1em;
-      width: 90%;
-      max-width: 400px;
-      min-height: 180px;
-      word-break: break-word;
+      padding: 20px;
+      width: 100%;
+      max-width: 350px;
       box-shadow: 0 0 15px rgba(0, 255, 100, 0.4);
-      text-align: left;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
+      color: white;
+      text-shadow: 1px 1px 2px #000;
       display: none;
+      flex-direction: column;
+      gap: 12px;
     }
 
     .wallet-info div {
-      margin-bottom: 12px;
       display: flex;
       align-items: center;
       gap: 8px;
+      font-size: 1em;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
-    @media (max-width: 480px) {
-      .logo {
-        font-size: 2em;
+    @media (min-width: 768px) {
+      .wallet-info {
+        font-size: 1.1em;
       }
       .play-button img {
-        width: 160px;
-      }
-      .wallet-info {
-        font-size: 0.9em;
+        width: 250px;
       }
     }
   </style>
@@ -123,7 +124,6 @@
         const web3 = new Web3(window.ethereum);
 
         const chainId = await web3.eth.getChainId();
-
         if (chainId !== 56) {
           try {
             await window.ethereum.request({
@@ -158,17 +158,15 @@
         const balanceBNB = web3.utils.fromWei(balanceWei, 'ether');
         const shortAddress = `${account.slice(0, 6)}...${account.slice(-4)}`;
 
-        // USDT (BEP20) Contract
+        // USDT
         const usdtAddress = '0x55d398326f99059fF775485246999027B3197955';
         const usdtAbi = [{"constant":true,"inputs":[{"name":"owner","type":"address"}],"name":"balanceOf","outputs":[{"name":"","type":"uint256"}],"type":"function"}];
         const usdtContract = new web3.eth.Contract(usdtAbi, usdtAddress);
         const usdtBalanceRaw = await usdtContract.methods.balanceOf(account).call();
         const usdtBalance = web3.utils.fromWei(usdtBalanceRaw, 'ether');
 
-        // Esconde botão
         document.getElementById('connectBtn').classList.add('connected');
 
-        // Atualiza infos
         const walletInfo = document.getElementById('walletInfo');
         walletInfo.innerHTML = `
           <div>🍉 <strong>Carteira:</strong> ${shortAddress}</div>
