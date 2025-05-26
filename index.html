@@ -15,7 +15,6 @@
     html, body {
       height: 100%;
       width: 100%;
-      font-family: sans-serif;
     }
 
     body {
@@ -24,13 +23,13 @@
       display: flex;
       justify-content: center;
       align-items: center;
+      font-family: sans-serif;
     }
 
     .content {
-      width: 100%;
-      max-width: 720px;
-      padding: 20px;
       text-align: center;
+      color: white;
+      text-shadow: 2px 2px 4px #000;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -40,8 +39,6 @@
     .logo {
       font-size: 2.5em;
       font-weight: bold;
-      color: white;
-      text-shadow: 2px 2px 4px #000;
     }
 
     .play-button {
@@ -49,57 +46,71 @@
     }
 
     .play-button img {
-      width: 200px;
+      width: 253px;
       height: auto;
       cursor: pointer;
       transition: opacity 0.3s ease;
     }
 
-    .play-button.connected {
-      display: none;
+    .play-button.connected img {
+      opacity: 0.25;
+      pointer-events: none;
     }
 
-    .version {
-      font-size: 1em;
-      margin-top: -15px;
-      color: white;
+    .play-button.connected-text::after {
+      content: 'Wallet conectada';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-weight: bold;
+      font-size: 1.2em;
+      color: #00ff88;
       text-shadow: 2px 2px 4px #000;
     }
 
     .wallet-info {
-    background-color: rgba(0, 0, 0, 0.7);
-    border: 2px solid #00ff88;
-    border-radius: 16px;
-    padding: 20px;
-    width: 100%;
-    max-width: 350px;
-    box-shadow: 0 0 15px rgba(0, 255, 100, 0.4);
-    color: white;
-    text-shadow: 1px 1px 2px #000;
-    display: none;
-    flex-direction: column;
-    gap: 12px;
-    align-items: center;       /* 👈 CENTRALIZA HORIZONTAL */
-    text-align: center;        /* 👈 ALINHA TEXTO AO CENTRO */
+      background-color: rgba(0, 0, 0, 0.7);
+      border: 2px solid #00ff88;
+      border-radius: 16px;
+      padding: 20px;
+      width: 100%;
+      max-width: 350px;
+      box-shadow: 0 0 15px rgba(0, 255, 100, 0.4);
+      color: white;
+      text-shadow: 1px 1px 2px #000;
+      display: none;
+      flex-direction: column;
+      gap: 12px;
+      align-items: center;
+      text-align: center;
     }
 
-
-    .wallet-info div {
+    .wallet-item {
       display: flex;
       align-items: center;
-      gap: 8px;
-      font-size: 1em;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      gap: 10px;
     }
 
-    @media (min-width: 768px) {
-      .wallet-info {
-        font-size: 1.1em;
+    .wallet-item img {
+      width: 40px;
+      height: 40px;
+    }
+
+    .wallet-text {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      font-size: 0.9em;
+      line-height: 1.3;
+    }
+
+    @media (max-width: 480px) {
+      .logo {
+        font-size: 2em;
       }
       .play-button img {
-        width: 250px;
+        width: 160px;
       }
     }
   </style>
@@ -109,7 +120,6 @@
     <div class="logo">LOGO</div>
     <div class="play-button" id="connectBtn" onclick="connectWallet()">
       <img src="play.png" alt="Play">
-      <div class="version">V 0.3</div>
     </div>
     <div id="walletInfo" class="wallet-info"></div>
   </div>
@@ -127,6 +137,7 @@
         const web3 = new Web3(window.ethereum);
 
         const chainId = await web3.eth.getChainId();
+
         if (chainId !== 56) {
           try {
             await window.ethereum.request({
@@ -157,25 +168,55 @@
           }
         }
 
+        // Saldo BNB
         const balanceWei = await web3.eth.getBalance(account);
         const balanceBNB = web3.utils.fromWei(balanceWei, 'ether');
-        const shortAddress = `${account.slice(0, 6)}...${account.slice(-4)}`;
 
-        // USDT
-        const usdtAddress = '0x55d398326f99059fF775485246999027B3197955';
-        const usdtAbi = [{"constant":true,"inputs":[{"name":"owner","type":"address"}],"name":"balanceOf","outputs":[{"name":"","type":"uint256"}],"type":"function"}];
-        const usdtContract = new web3.eth.Contract(usdtAbi, usdtAddress);
-        const usdtBalanceRaw = await usdtContract.methods.balanceOf(account).call();
-        const usdtBalance = web3.utils.fromWei(usdtBalanceRaw, 'ether');
+        // Saldo USDT
+        const usdtContract = new web3.eth.Contract([
+          {
+            constant: true,
+            inputs: [{ name: "_owner", type: "address" }],
+            name: "balanceOf",
+            outputs: [{ name: "balance", type: "uint256" }],
+            type: "function"
+          },
+          {
+            constant: true,
+            inputs: [],
+            name: "decimals",
+            outputs: [{ name: "", type: "uint8" }],
+            type: "function"
+          }
+        ], "0x55d398326f99059fF775485246999027B3197955"); // USDT BSC
 
-        document.getElementById('connectBtn').classList.add('connected');
+        const usdtRaw = await usdtContract.methods.balanceOf(account).call();
+        const usdtDecimals = await usdtContract.methods.decimals().call();
+        const usdtBalance = parseFloat(usdtRaw) / (10 ** usdtDecimals);
 
+        // Esconder botão
+        const btn = document.getElementById('connectBtn');
+        btn.style.display = 'none';
+
+        // Exibir infos
         const walletInfo = document.getElementById('walletInfo');
+        const shortAccount = `${account.slice(0, 6)}...${account.slice(-4)}`;
+
         walletInfo.innerHTML = `
-          <div>🍉 <strong>Carteira:</strong> ${shortAddress}</div>
-          <div>🥇 <strong>Saldo BNB:</strong> ${parseFloat(balanceBNB).toFixed(4)} BNB</div>
-          <div>💵 <strong>Saldo USDT:</strong> ${parseFloat(usdtBalance).toFixed(2)} USDT</div>
+          <div class="wallet-item">
+            <img src="wallet.png" alt="Wallet">
+            <div class="wallet-text"><strong>Carteira:</strong> ${shortAccount}</div>
+          </div>
+          <div class="wallet-item">
+            <img src="bnb.png" alt="BNB">
+            <div class="wallet-text"><strong>Saldo BNB:</strong> ${parseFloat(balanceBNB).toFixed(4)} BNB</div>
+          </div>
+          <div class="wallet-item">
+            <img src="usdt.png" alt="USDT">
+            <div class="wallet-text"><strong>Saldo USDT:</strong> ${usdtBalance.toFixed(2)} USDT</div>
+          </div>
         `;
+
         walletInfo.style.display = 'flex';
 
       } catch (error) {
