@@ -33,12 +33,16 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 25px;
+      gap: 30px;
     }
 
     .logo {
       font-size: 2.5em;
       font-weight: bold;
+    }
+
+    .play-button {
+      position: relative;
     }
 
     .play-button img {
@@ -48,6 +52,10 @@
       transition: opacity 0.3s ease;
     }
 
+    .play-button.connected {
+      display: none;
+    }
+
     .version {
       font-size: 1em;
       margin-top: -20px;
@@ -55,44 +63,39 @@
 
     .wallet-info {
       margin-top: 20px;
-      padding: 15px;
-      background-color: rgba(0, 255, 100, 0.15);
-      border: 1px solid #00ff88;
-      border-radius: 12px;
-      font-size: 0.95em;
+      padding: 20px;
+      background-color: rgba(0, 0, 0, 0.7); /* fundo preto com 70% opacidade */
+      border: 2px solid #00ff88;
+      border-radius: 16px;
+      font-size: 1em;
       width: 90%;
-      max-width: 360px;
+      max-width: 400px;
+      min-height: 180px;
       word-break: break-word;
       box-shadow: 0 0 15px rgba(0, 255, 100, 0.4);
       text-align: left;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      display: none;
     }
 
     .wallet-info div {
-      margin-bottom: 10px;
+      margin-bottom: 12px;
       display: flex;
       align-items: center;
       gap: 8px;
-    }
-
-    .wallet-info i {
-      color: #00ff88;
-    }
-
-    #connectBtn {
-      position: relative;
     }
 
     @media (max-width: 480px) {
       .logo {
         font-size: 2em;
       }
-
       .play-button img {
         width: 160px;
       }
-
       .wallet-info {
-        font-size: 0.85em;
+        font-size: 0.9em;
       }
     }
   </style>
@@ -102,30 +105,12 @@
     <div class="logo">LOGO</div>
     <div class="play-button" id="connectBtn" onclick="connectWallet()">
       <img src="play.png" alt="Play">
-      <div class="version">V 0.2</div>
+      <div class="version">V 0.3</div>
     </div>
-    <div id="walletInfo" class="wallet-info" style="display:none;"></div>
+    <div id="walletInfo" class="wallet-info"></div>
   </div>
 
   <script>
-    const usdtContractAddress = "0x55d398326f99059fF775485246999027B3197955"; // USDT (BEP-20)
-    const usdtABI = [
-      {
-        constant: true,
-        inputs: [{ name: "_owner", type: "address" }],
-        name: "balanceOf",
-        outputs: [{ name: "balance", type: "uint256" }],
-        type: "function",
-      },
-      {
-        constant: true,
-        inputs: [],
-        name: "decimals",
-        outputs: [{ name: "", type: "uint8" }],
-        type: "function"
-      }
-    ];
-
     async function connectWallet() {
       if (typeof window.ethereum === 'undefined') {
         alert('Carteira Web3 não detectada. Use MetaMask, Trust Wallet ou outra carteira compatível.');
@@ -138,6 +123,7 @@
         const web3 = new Web3(window.ethereum);
 
         const chainId = await web3.eth.getChainId();
+
         if (chainId !== 56) {
           try {
             await window.ethereum.request({
@@ -146,45 +132,50 @@
             });
           } catch (switchError) {
             if (switchError.code === 4902) {
-              await window.ethereum.request({
-                method: 'wallet_addEthereumChain',
-                params: [{
-                  chainId: '0x38',
-                  chainName: 'Binance Smart Chain',
-                  nativeCurrency: { name: 'BNB', symbol: 'BNB', decimals: 18 },
-                  rpcUrls: ['https://bsc-dataseed.binance.org/'],
-                  blockExplorerUrls: ['https://bscscan.com']
-                }]
-              });
+              try {
+                await window.ethereum.request({
+                  method: 'wallet_addEthereumChain',
+                  params: [{
+                    chainId: '0x38',
+                    chainName: 'Binance Smart Chain',
+                    nativeCurrency: {
+                      name: 'BNB',
+                      symbol: 'BNB',
+                      decimals: 18
+                    },
+                    rpcUrls: ['https://bsc-dataseed.binance.org/'],
+                    blockExplorerUrls: ['https://bscscan.com']
+                  }]
+                });
+              } catch (addError) {
+                console.error('Erro ao adicionar a BSC:', addError);
+              }
             }
           }
         }
 
-        // BNB balance
         const balanceWei = await web3.eth.getBalance(account);
         const balanceBNB = web3.utils.fromWei(balanceWei, 'ether');
+        const shortAddress = `${account.slice(0, 6)}...${account.slice(-4)}`;
 
-        // USDT balance
-        const usdt = new web3.eth.Contract(usdtABI, usdtContractAddress);
-        const usdtRaw = await usdt.methods.balanceOf(account).call();
-        const usdtDecimals = await usdt.methods.decimals().call();
-        const balanceUSDT = (usdtRaw / Math.pow(10, usdtDecimals)).toFixed(2);
+        // USDT (BEP20) Contract
+        const usdtAddress = '0x55d398326f99059fF775485246999027B3197955';
+        const usdtAbi = [{"constant":true,"inputs":[{"name":"owner","type":"address"}],"name":"balanceOf","outputs":[{"name":"","type":"uint256"}],"type":"function"}];
+        const usdtContract = new web3.eth.Contract(usdtAbi, usdtAddress);
+        const usdtBalanceRaw = await usdtContract.methods.balanceOf(account).call();
+        const usdtBalance = web3.utils.fromWei(usdtBalanceRaw, 'ether');
 
-        // Abreviar endereço
-        const shortAccount = account.substring(0, 6) + '...' + account.slice(-4);
+        // Esconde botão
+        document.getElementById('connectBtn').classList.add('connected');
 
-        // Ocultar botão
-        const btn = document.getElementById('connectBtn');
-        btn.style.display = 'none';
-
-        // Mostrar infos
+        // Atualiza infos
         const walletInfo = document.getElementById('walletInfo');
         walletInfo.innerHTML = `
-          <div><i>👛</i><strong>Carteira:</strong> ${shortAccount}</div>
-          <div><i>🟡</i><strong>Saldo BNB:</strong> ${parseFloat(balanceBNB).toFixed(4)} BNB</div>
-          <div><i>💵</i><strong>Saldo USDT:</strong> ${balanceUSDT} USDT</div>
+          <div>🍉 <strong>Carteira:</strong> ${shortAddress}</div>
+          <div>🥇 <strong>Saldo BNB:</strong> ${parseFloat(balanceBNB).toFixed(4)} BNB</div>
+          <div>💵 <strong>Saldo USDT:</strong> ${parseFloat(usdtBalance).toFixed(2)} USDT</div>
         `;
-        walletInfo.style.display = 'block';
+        walletInfo.style.display = 'flex';
 
       } catch (error) {
         console.error('Erro ao conectar:', error);
