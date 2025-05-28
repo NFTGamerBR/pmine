@@ -4,191 +4,131 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>FUMACOIN!</title>
-  <link rel="icon" href="favicon.png" type="image/png">
   <script src="https://cdn.jsdelivr.net/npm/web3@1.10.0/dist/web3.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
-
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { height: 100%; width: 100%; }
     body {
-      background: url('base.png') no-repeat center center;
-      background-size: cover;
-      display: flex;
-      justify-content: center;
-      align-items: center;
+      background: #000;
+      color: #fff;
       font-family: sans-serif;
-    }
-    .content {
-      text-align: center;
-      color: white;
-      text-shadow: 2px 2px 4px #000;
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 30px;
-    }
-    .logo img {
-      max-width: 380px;
-      height: auto;
-      top: -50px;
-    }
-    .play-button img {
-      width: 200px;
-      cursor: pointer;
-      transition: opacity 0.3s ease;
+      padding: 20px;
     }
     .wallet-info {
-      background-color: rgba(0, 0, 0, 0.7);
-      border: 2px solid #00ff88;
-      border-radius: 16px;
+      margin-top: 20px;
+      border: 1px solid #00ff88;
+      border-radius: 10px;
       padding: 20px;
+      background: #111;
+      box-shadow: 0 0 10px #00ff8855;
+      max-width: 400px;
       width: 100%;
-      max-width: 350px;
-      box-shadow: 0 0 15px rgba(0, 255, 100, 0.4);
-      display: none;
-      flex-direction: column;
-      gap: 12px;
-      align-items: center;
-      text-align: center;
     }
     .wallet-item {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-    .wallet-item img {
-      width: 40px;
-      height: 40px;
-    }
-    .wallet-text {
-      display: flex;
-      flex-direction: column;
-      align-items: flex-start;
-      font-size: 0.9em;
+      margin-bottom: 10px;
     }
   </style>
 </head>
 <body>
+  <h1>FUMACOIN!</h1>
+  <button onclick="connectWallet()">Conectar Wallet</button>
 
-  <div class="content">
-    <div class="logo"><img src="logo.png" alt="LOGO"></div>
-    <div class="play-button" id="connectBtn" onclick="connectWallet()">
-      <img src="play.png" alt="Play">
-    </div>
-    <div id="walletInfo" class="wallet-info"></div>
+  <div class="wallet-info" id="walletInfo" style="display:none;">
+    <div class="wallet-item"><strong>Carteira:</strong> <span id="walletAddress"></span></div>
+    <div class="wallet-item"><strong>Tokens:</strong> <span id="tokens"></span></div>
+    <div class="wallet-item"><strong>Fazendas:</strong> <span id="fazendas"></span></div>
+    <div class="wallet-item"><strong>Rendimento:</strong> <span id="rendimento"></span> /s</div>
   </div>
 
-<script>
-  const supabaseUrl = 'https://YOUR_PROJECT.supabase.co';
-  const supabaseKey = 'YOUR_PUBLIC_ANON_KEY';
-  const supabase = supabase.createClient(supabaseUrl, supabaseKey);
+  <script>
+    const supabaseUrl = 'https://pclrnkgztxtvnxgcjoqk.supabase.co';
+    const supabaseKey = 'cvss3FZi4dfcTmm6GKGAupFhQEvgr4JaQT3oKwldGSIf0muykqOSGAwSnL2VLRxXv8Koz+8uAo6kyGfWfHbxhA==';
+    const supabase = supabase.createClient(supabaseUrl, supabaseKey);
 
-  async function connectWallet() {
-    if (typeof window.ethereum === 'undefined') {
-      alert('Carteira Web3 não detectada.');
-      return;
-    }
+    let walletAddress = '';
+    let tokens = 0;
+    let fazendas = 1;
+    let rendimento = 0.01;
+    let updateInterval = null;
 
-    try {
-      const accounts = await ethereum.request({ method: 'eth_requestAccounts' });
-      const account = accounts[0];
-      const web3 = new Web3(window.ethereum);
-
-      // Força rede BSC
-      const chainId = await web3.eth.getChainId();
-      if (chainId !== 56) {
-        try {
-          await ethereum.request({
-            method: 'wallet_switchEthereumChain',
-            params: [{ chainId: '0x38' }],
-          });
-        } catch (err) {
-          alert("Erro ao mudar para BSC.");
-          return;
-        }
+    async function connectWallet() {
+      if (typeof window.ethereum === 'undefined') {
+        alert('Carteira Web3 não detectada!');
+        return;
       }
 
-      const balanceWei = await web3.eth.getBalance(account);
-      const balanceBNB = web3.utils.fromWei(balanceWei, 'ether');
+      try {
+        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+        walletAddress = accounts[0];
+        document.getElementById('walletAddress').innerText = walletAddress;
 
-      // USDT na BSC
-      const usdt = new web3.eth.Contract([
-        { constant: true, inputs: [{ name: "_owner", type: "address" }], name: "balanceOf", outputs: [{ name: "balance", type: "uint256" }], type: "function" },
-        { constant: true, inputs: [], name: "decimals", outputs: [{ name: "", type: "uint8" }], type: "function" }
-      ], "0x55d398326f99059fF775485246999027B3197955");
+        await fetchOrCreateUser(walletAddress);
+        updateUI();
 
-      const usdtRaw = await usdt.methods.balanceOf(account).call();
-      const usdtDecimals = await usdt.methods.decimals().call();
-      const usdtBalance = parseFloat(usdtRaw) / (10 ** usdtDecimals);
+        document.getElementById('walletInfo').style.display = 'block';
 
-      document.getElementById('connectBtn').style.display = 'none';
-      const walletInfo = document.getElementById('walletInfo');
-      const shortAcc = `${account.slice(0, 6)}...${account.slice(-4)}`;
+        if (!updateInterval) {
+          updateInterval = setInterval(updateTokens, 1000);
+        }
 
-      // Busca/cria usuário no Supabase
-      let { data: user, error } = await supabase
+      } catch (error) {
+        console.error('Erro ao conectar:', error);
+        alert('Erro ao conectar a carteira.');
+      }
+    }
+
+    async function fetchOrCreateUser(address) {
+      const { data, error } = await supabase
         .from('usuarios')
         .select('*')
-        .eq('wallet', account)
+        .eq('id', address)
         .single();
 
-      if (!user) {
-        const insert = await supabase
+      if (error && error.code === 'PGRST116') {
+        // Não existe, cria novo usuário
+        const { error: insertError } = await supabase
           .from('usuarios')
-          .insert([{ wallet: account, tokens: 0, fazendas: 1, rendimento: 0.01 }])
-          .select()
-          .single();
-        user = insert.data;
+          .insert([{ id: address }]);
+
+        if (insertError) {
+          console.error('Erro ao criar usuário:', insertError);
+          alert('Erro ao criar usuário.');
+        } else {
+          tokens = 0;
+          fazendas = 1;
+          rendimento = 0.01;
+        }
+      } else if (data) {
+        tokens = parseFloat(data.tokens);
+        fazendas = data.fazendas;
+        rendimento = parseFloat(data.rendimento);
+      } else {
+        console.error('Erro ao buscar usuário:', error);
       }
-
-      let tokens = parseFloat(user.tokens || 0);
-      const fazendas = user.fazendas;
-      const rendimento = user.rendimento;
-
-      walletInfo.innerHTML = `
-        <div class="wallet-item">
-          <img src="wallet.png" alt="Wallet">
-          <div class="wallet-text"><strong>Carteira:</strong> ${shortAcc}</div>
-        </div>
-        <div class="wallet-item">
-          <img src="bnb.png" alt="BNB">
-          <div class="wallet-text"><strong>BNB:</strong> ${parseFloat(balanceBNB).toFixed(4)}</div>
-        </div>
-        <div class="wallet-item">
-          <img src="usdt.png" alt="USDT">
-          <div class="wallet-text"><strong>USDT:</strong> ${usdtBalance.toFixed(2)}</div>
-        </div>
-        <div class="wallet-item">
-          <img src="token.png" alt="Token">
-          <div class="wallet-text"><strong>Tokens:</strong> <span id="tokenValue">${tokens.toFixed(2)}</span></div>
-        </div>
-        <div class="wallet-item">
-          <img src="farm.png" alt="Fazenda">
-          <div class="wallet-text"><strong>Fazendas:</strong> ${fazendas}</div>
-        </div>
-        <div class="wallet-item">
-          <img src="rendimento.png" alt="Rendimento">
-          <div class="wallet-text"><strong>Rendimento:</strong> ${rendimento}/s</div>
-        </div>
-      `;
-      walletInfo.style.display = 'flex';
-
-      setInterval(async () => {
-        tokens += rendimento;
-        document.getElementById('tokenValue').textContent = tokens.toFixed(2);
-
-        await supabase
-          .from('usuarios')
-          .update({ tokens })
-          .eq('wallet', account);
-      }, 1000);
-
-    } catch (err) {
-      console.error('Erro ao conectar:', err);
-      alert('Erro ao conectar a carteira.');
     }
-  }
-</script>
+
+    function updateUI() {
+      document.getElementById('tokens').innerText = tokens.toFixed(2);
+      document.getElementById('fazendas').innerText = fazendas;
+      document.getElementById('rendimento').innerText = rendimento.toFixed(2);
+    }
+
+    async function updateTokens() {
+      tokens += rendimento;
+      updateUI();
+
+      // Salva no banco
+      const { error } = await supabase
+        .from('usuarios')
+        .update({ tokens })
+        .eq('id', walletAddress);
+
+      if (error) {
+        console.error('Erro ao salvar tokens:', error);
+      }
+    }
+  </script>
 </body>
 </html>
